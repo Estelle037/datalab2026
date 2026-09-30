@@ -166,3 +166,4 @@ double 的 53 位尾数跨了两个 32 位字，所以要按 E = exp − 1023 �
 
 -  伟大的 AI 老师
 - 《深入理解计算机系统》
+- Sean Eron Anderson, *Bit Twiddling Hacks*, <https://graphics.stanford.edu/~seander/bithacks.html>。reverse 注释里那版分治交换的掩码序列，以及 logtwo 的二分求最高位，都出自这里。
