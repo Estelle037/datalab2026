@@ -50,6 +50,7 @@ int bitXor(int x, int y) {
  *   1 if x and y have the same sign , 0 otherwise.
  */
 int samesign(int x, int y) {
+    // 符号位相同，且是否为 0 也相同
     return !((x >> 31) ^ (y >> 31)) && !((!x) ^ (!y));
 }
 
@@ -63,21 +64,30 @@ int samesign(int x, int y) {
  *   Difficulty: 4
  */
 int logtwo(int v) {
-    int r = 0;
-    int s;
-    s = (v > 0xFFFF) << 4;
-    v = v >> s;
-    r = r | s;
-    s = (v > 0xFF) << 3;
-    v = v >> s;
-    r = r | s;
-    s = (v > 0xF) << 2;
-    v = v >> s;
-    r = r | s;
-    s = (v > 3) << 1;
-    v = v >> s;
-    r = r | s;
-    return r | (v >> 1);
+    // 0xFFFF = (0xFF << 8) | 0xFF
+    //
+    // 另一种写法：用 (v >> k) > 0 代替和大常量比较，不需要大常量，21 个运算符
+    // int result, move;
+    // move = ((v >> 16) > 0) << 4; v = v >> move; result = move;
+    // move = ((v >> 8) > 0) << 3; v = v >> move; result = result | move;
+    // move = ((v >> 4) > 0) << 2; v = v >> move; result = result | move;
+    // move = ((v >> 2) > 0) << 1; v = v >> move; result = result | move;
+    // return result | (v >> 1);
+    int result = 0;
+    int move;
+    move = (v > 0xFFFF) << 4;  // 最高位 1 在第 16 位以上？是则记 16
+    v = v >> move;  // 把已确定的那一半移走
+    result = result | move;
+    move = (v > 0xFF) << 3;
+    v = v >> move;
+    result = result | move;
+    move = (v > 0xF) << 2;
+    v = v >> move;
+    result = result | move;
+    move = (v > 3) << 1;
+    v = v >> move;
+    result = result | move;
+    return result | (v >> 1);  // 此时 v 只剩 1、2、3
 }
 
 /*
@@ -90,10 +100,12 @@ int logtwo(int v) {
  *    Difficulty: 2
  */
 int byteSwap(int x, int n, int m) {
-    int nb = n << 3;
-    int mb = m << 3;
-    int d = ((x >> nb) ^ (x >> mb)) & 0xFF;
-    return x ^ (d << nb) ^ (d << mb);
+    int n8 = n << 3;
+    int m8 = m << 3;
+    int valueofn = (x >> n8) & 0xFF;  // 取出第 n 个字节
+    int valueofm = (x >> m8) & 0xFF;  // 取出第 m 个字节
+    int mask = ~((0xFF << n8) | (0xFF << m8));  // 把这两个字节的位置挖空
+    return (x & mask) | (valueofn << m8) | (valueofm << n8);  // 交叉放回
 }
 
 /*
@@ -105,11 +117,24 @@ int byteSwap(int x, int n, int m) {
  *   Difficulty: 3
  */
 unsigned reverse(unsigned v) {
-    v = ((v >> 1) & 0x55555555) | ((v & 0x55555555) << 1);
-    v = ((v >> 2) & 0x33333333) | ((v & 0x33333333) << 2);
-    v = ((v >> 4) & 0x0F0F0F0F) | ((v & 0x0F0F0F0F) << 4);
-    v = ((v >> 8) & 0x00FF00FF) | ((v & 0x00FF00FF) << 8);
-    return (v >> 16) | (v << 16);
+    // 分治版：
+    // t = (0x55 << 8) | 0x55;  m1 = (t << 16) | t  // 0x55555555
+    // t = (0x33 << 8) | 0x33;  m2 = (t << 16) | t  // 0x33333333
+    // t = (0x0F << 8) | 0x0F;  m3 = (t << 16) | t  // 0x0F0F0F0F
+    // m4 = (0xFF << 16) | 0xFF  // 0x00FF00FF
+    // v = ((v >> 1) & m1) | ((v & m1) << 1);
+    // v = ((v >> 2) & m2) | ((v & m2) << 2);
+    // v = ((v >> 4) & m3) | ((v & m3) << 4);
+    // v = ((v >> 8) & m4) | ((v & m4) << 8);
+    // return (v >> 16) | (v << 16);
+    unsigned result = 0;
+    int count = 32;
+    while (count) {  // 这题没有 <，用 count 是否减到 0 判断
+        result = (result << 1) | (v & 1);  // result 腾出最低位，装入 v 的最低位
+        v = v >> 1;  // v 丢掉已搬走的那位
+        count = count - 1;
+    }
+    return result;
 }
 
 /*
@@ -121,6 +146,7 @@ unsigned reverse(unsigned v) {
  *   Difficulty: 3
  */
 int logicalShift(int x, int n) {
+    // 掩码高 n 位为 0、其余为 1，清掉算术右移补上的符号位
     return (x >> n) & ~(((1 << 31) >> n) << 1);
 }
 
@@ -133,24 +159,25 @@ int logicalShift(int x, int n) {
  *   Difficulty: 4
  */
 int leftBitCount(int x) {
-    int n;
-    int c;
-    c = (!(~x >> 16)) << 4;
-    n = c;
-    x = x << c;
-    c = (!(~x >> 24)) << 3;
-    n = n + c;
-    x = x << c;
-    c = (!(~x >> 28)) << 2;
-    n = n + c;
-    x = x << c;
-    c = (!(~x >> 30)) << 1;
-    n = n + c;
-    x = x << c;
-    c = !(~x >> 31);
-    n = n + c;
-    x = x << c;
-    return n + (!(~x >> 31));
+    // !(~x >> k) 为 1 表示 x 的高 32-k 位全是 1
+    int count;
+    int step;
+    step = (!(~x >> 16)) << 4;
+    count = step;
+    x = x << step;  // 成立则记下 16 并把这 16 位移走
+    step = (!(~x >> 24)) << 3;
+    count = count + step;
+    x = x << step;
+    step = (!(~x >> 28)) << 2;
+    count = count + step;
+    x = x << step;
+    step = (!(~x >> 30)) << 1;
+    count = count + step;
+    x = x << step;
+    step = !(~x >> 31);
+    count = count + step;
+    x = x << step;
+    return count + (!(~x >> 31));
 }
 
 /*
@@ -162,27 +189,31 @@ int leftBitCount(int x) {
  *   Difficulty: 4
  */
 unsigned float_i2f(int x) {
-    unsigned s = 0;
-    unsigned m = x;
+    // 0x80000000 = 1 << 31
+    // 0x7FFFFF = (0x80 << 16) + ~0
+    unsigned sign = 0;
+    unsigned frac = x;
     unsigned tail;
-    int e = 158;
-    if (!x)
+    int exp = 158;  // 127 + 31
+    if (!x) {
         return 0;
+    }
     if (x < 0) {
-        s = 0x80000000;
-        m = ~m + 1;
+        sign = 0x80000000;
+        frac = ~frac + 1;  // 在无符号域取绝对值，避开 INT_MIN 溢出
     }
-    while (!(m >> 31)) {
-        m = m << 1;
-        e = e - 1;
+    while (!(frac >> 31)) {  // 把最高位的 1 对齐到 bit31
+        frac = frac << 1;
+        exp = exp - 1;
     }
-    tail = m & 0xFF;
-    m = (m >> 8) & 0x7FFFFF;
-    if (tail > 128)
-        m = m + 1;
-    else if (tail == 128)
-        m = m + (m & 1);
-    return s + (e << 23) + m;
+    tail = frac & 0xFF;  // 23 位尾数之外被移出去的部分
+    frac = (frac >> 8) & 0x7FFFFF;
+    if (tail > 128) {  // 就近舍入，中间值取偶
+        frac = frac + 1;
+    } else if (tail == 128) {
+        frac = frac + (frac & 1);
+    }
+    return sign + (exp << 23) + frac;  // 用 + 让尾数进位溢出到阶码
 }
 
 /*
@@ -197,15 +228,22 @@ unsigned float_i2f(int x) {
  *   Difficulty: 4
  */
 unsigned floatScale2(unsigned uf) {
-    unsigned e = (uf >> 23) & 0xFF;
-    unsigned s = uf & 0x80000000;
-    if (e == 0xFF)
-        return uf;
-    if (e == 0)
-        return s | ((uf & 0x7FFFFF) << 1);
-    if (e == 0xFE)
-        return s | 0x7F800000;
-    return uf + 0x800000;
+    // 0x80000000 = 1 << 31
+    // 0x7FFFFF = (0x80 << 16) + ~0
+    // 0x7F800000 = 0xFF << 23
+    // 0x800000 = 0x80 << 16
+    unsigned exp = (uf >> 23) & 0xFF;
+    unsigned sign = uf & 0x80000000;
+    if (exp == 0xFF) {
+        return uf;  // Inf / NaN
+    }
+    if (exp == 0) {
+        return sign | ((uf & 0x7FFFFF) << 1);  // 非规格化数，尾数左移一位
+    }
+    if (exp == 0xFE) {
+        return sign | 0x7F800000;  // 翻倍后溢出成 Inf
+    }
+    return uf + 0x800000;  // 阶码加一
 }
 
 /*
@@ -222,20 +260,28 @@ unsigned floatScale2(unsigned uf) {
  *   Difficulty: 3
  */
 int float64_f2i(unsigned uf1, unsigned uf2) {
-    int e = ((uf2 >> 20) & 0x7FF) - 1023;
-    unsigned m = (uf2 & 0xFFFFF) | 0x100000;
-    unsigned r;
-    if (e < 0)
+    // 0x7FF = (0x07 << 8) | 0xFF
+    // 0xFFFFF = (0x0F << 16) | (0xFF << 8) | 0xFF
+    // 0x100000 = 1 << 20
+    // 0x80000000 = 1 << 31
+    int exp = ((uf2 >> 20) & 0x7FF) - 1023;
+    unsigned frac = (uf2 & 0xFFFFF) | 0x100000;  // 高字的 20 位尾数补上隐含的 1
+    unsigned result;
+    if (exp < 0) {
         return 0;
-    if (e > 30)
-        return 0x80000000;
-    if (e > 20)
-        r = (m << (e - 20)) | (uf1 >> (52 - e));
-    else
-        r = m >> (20 - e);
-    if (uf2 >> 31)
-        r = ~r + 1;
-    return r;
+    }
+    if (exp > 30) {
+        return 0x80000000;  // 溢出，Inf / NaN 也落在这里
+    }
+    if (exp > 20) {
+        result = (frac << (exp - 20)) | (uf1 >> (52 - exp));  // 整数部分跨到低字
+    } else {
+        result = frac >> (20 - exp);
+    }
+    if (uf2 >> 31) {
+        result = ~result + 1;
+    }
+    return result;
 }
 
 /*
@@ -252,11 +298,15 @@ int float64_f2i(unsigned uf1, unsigned uf2) {
  *   Difficulty: 4
  */
 unsigned floatPower2(int x) {
-    if (x < -149)
+    // 0x7F800000 = 0xFF << 23
+    if (x < -149) {
         return 0;
-    if (x < -126)
-        return 1 << (x + 149);
-    if (x < 128)
-        return (x + 127) << 23;
-    return 0x7F800000;
+    }
+    if (x < -126) {
+        return 1 << (x + 149);  // 非规格化区
+    }
+    if (x < 128) {
+        return (x + 127) << 23;  // 规格化数
+    }
+    return 0x7F800000;  // +INF
 }
